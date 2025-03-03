@@ -1,24 +1,87 @@
 #include "Expression.hpp"
 
+#include <iostream>
+#include <iomanip>
 
 std::unique_ptr<Expression> Expression::create(T val) {
     return std::make_unique<Constant>(val);
 }
+///*
 std::unique_ptr<Expression> Expression::create(std::string source) {
-    ;
-    //ОЧЕНЬ СЛОЖНЫЙ КОД ЗДЕСЬ
+    while (source.length() > 0) {
+        if (source[0] == ' ') {
+            source = source.substr(1);
+            continue;
+        } else if (source.back() == ' ') {
+            source.pop_back();
+            continue;
+        } else if (source[0] == '(' && find_close(source.substr(1)) == source.length() - 2) {
+            source = source.substr(1, source.length() - 1);
+            continue;
+        }
+        break;
+    }
+
+    //---CONSTANT---//
+    if (source.length() == 0)
+        return std::make_unique<Constant>(0);
+        //throw std::runtime_error("Empty expression");
+    if (is_number(source))
+        return std::make_unique<Constant>(to_number<T>(source));
+
+    //---VARIABLE--//
+    if (source.length() == 1) {
+        char c = source[0];
+        if constexpr (std::is_same_v<T, std::complex<long double>>) {
+            if (c == 'i') return std::make_unique<Constant>(std::complex<long double>(0, 1));
+        }
+        if (('a' <= c && c <= 'z') || ('A' <= c && c <= 'Z'))
+            return std::make_unique<Variable>(c);
+        throw std::runtime_error("Invalid character for expression: " + c);
+    }
+
+    //----UNARY----//
+    for (auto op: UNARY_OPERATORS) {
+        if (source.length() < op.second.length()) continue;
+        bool op_found = true;
+        for (int i = 0; i < op.second.length(); ++i)
+            if (source[i] != op.second[i]) op_found = false;
+        if (!op_found) continue;
+        if (source.length() < op.second.length() + 2 || source[op.second.length()] != '(')
+            throw std::runtime_error("Expected a '(...)' after '" + op.second + "': " + source);
+        std::string new_source = source.substr(op.second.length() + 1);
+        size_t closed = find_close(new_source);
+        if (closed != new_source.length() - 1) break;
+        new_source = new_source.substr(0, closed);
+        return std::make_unique<Unary>(op.first, Expression::create(new_source));
+    }
+
+    //----BINARY----//
+    size_t sep = find_operator(source);
+    if (sep == std::string::npos)
+        throw std::runtime_error("Invalid expression: " + source);
+    std::string l_source = source.substr(0, sep);
+    std::string r_source = source.substr(sep + 1);
+    return std::make_unique<Binary>(source[sep], Expression::create(l_source), Expression::create(r_source));
 }
+//*/
 
 
 //--------------//
 //---CONSTANT---//
 //--------------//
 Constant::Constant(T val) : value(val) {}
-T Constant::evaluate(std::map<char, T> &x) const {
+std::unique_ptr<Expression> Constant::clone() const {
+    return std::make_unique<Constant>(value);
+}
+T Constant::evaluate(const std::map<char, T> &x) const {
     return value;
 }
 std::unique_ptr<Expression> Constant::specify(char x, T val) {
     return nullptr;
+}
+std::string Constant::to_string() const {
+    return std::to_string(value);
 }
 
 
@@ -26,13 +89,20 @@ std::unique_ptr<Expression> Constant::specify(char x, T val) {
 //---VARIABLE---//
 //--------------//
 Variable::Variable(char x) : name(x) {}
-T Variable::evaluate(std::map<char, T> &x) const {
-    return x[name];
+std::unique_ptr<Expression> Variable::clone() const {
+    return std::make_unique<Variable>(name);
+}
+T Variable::evaluate(const std::map<char, T> &x) const {
+    auto it = x.find(name);
+    return (it != x.end()) ? it->second : T{};
 }
 std::unique_ptr<Expression> Variable::specify(char x, T val) {
     if (x == name)
         return std::make_unique<Constant>(val);
     return nullptr;
+}
+std::string Variable::to_string() const {
+    return {name};
 }
 
 
@@ -44,19 +114,22 @@ Binary::Binary(char operation, std::unique_ptr<Expression> l, std::unique_ptr<Ex
     : op(operation), left(std::move(l)), right(std::move(r)) {}
 Binary::Binary(const Binary &other) {
     op = other.op;
-    left = std::make_unique<Expression>(*other.left);
-    right = std::make_unique<Expression>(*other.right);
+    left = std::move(other.left->clone());
+    right = std::move(other.right->clone());
 }
 Binary& Binary::operator=(const Binary &other) {
     if (this == &other) return *this;
     op = other.op;
-    left = std::make_unique<Expression>(*other.left);
-    right = std::make_unique<Expression>(*other.left);
+    left = std::move(other.left->clone());
+    right = std::move(other.right->clone());
     return *this;
 }
-T Binary::evaluate(std::map<char, T> &x) const {
-    auto l = left->evaluate(x);
-    auto r = right->evaluate(x);
+std::unique_ptr<Expression> Binary::clone() const {
+    return std::make_unique<Binary>(op, left->clone(), right->clone());
+}
+T Binary::evaluate(const std::map<char, T> &x) const {
+    T l = left->evaluate(x);
+    T r = right->evaluate(x);
     switch (op) {
         case '+': return l + r;
         case '-': return l - r;
@@ -67,13 +140,17 @@ T Binary::evaluate(std::map<char, T> &x) const {
     }
 }
 std::unique_ptr<Expression> Binary::specify(char x, T val) {
-    std::unique_ptr<Expression> new_left = left->specify(x, val);
-    std::unique_ptr<Expression> new_right = right->specify(x, val);
+    std::unique_ptr<Expression> new_left = std::move(left->specify(x, val));
+    std::unique_ptr<Expression> new_right = std::move(right->specify(x, val));
     if (new_left)
         left = std::move(new_left);
     if (new_right)
         right = std::move(new_right);
     return nullptr;
+}
+std::string Binary::to_string() const {
+    if (op == '^') return left->to_string() + op + right->to_string();
+    return '(' + left->to_string() + ' ' + op + ' ' + right->to_string() + ')';
 }
 
 
@@ -84,15 +161,18 @@ Unary::Unary(char operation, std::unique_ptr<Expression> expression)
     : op(operation), expr(std::move(expression)) {}
 Unary::Unary(const Unary &other) {
     op = other.op;
-    expr = std::make_unique<Expression>(*other.expr);
+    expr = std::move(other.expr->clone());
 }
 Unary& Unary::operator=(const Unary &other) {
     if (this == &other) return *this;
     op = other.op;
-    expr = std::make_unique<Expression>(*other.expr);
+    expr = std::move(other.expr->clone());
     return *this;
 }
-T Unary::evaluate(std::map<char, T> &x) const {
+std::unique_ptr<Expression> Unary::clone() const {
+    return std::make_unique<Unary>(op, expr->clone());
+}
+T Unary::evaluate(const std::map<char, T> &x) const {
     auto res = expr->evaluate(x);
     switch (op) {
         case 's': return sin(res);
@@ -103,9 +183,108 @@ T Unary::evaluate(std::map<char, T> &x) const {
     }
 }
 std::unique_ptr<Expression> Unary::specify(char x, T val) {
-    std::unique_ptr<Expression> new_expr = expr->specify(x, val);
+    std::unique_ptr<Expression> new_expr = std::move(expr->specify(x, val));
     if (new_expr)
         expr = std::move(new_expr);
     return nullptr;
 }
+std::string Unary::to_string() const {
+    std::string operation = "";
+    switch (op) {
+        case 's': operation = "sin"; break;
+        case 'c': operation = "cos"; break;
+        case 'l': operation = "ln"; break;
+        case 'e': operation = "exp"; break;
+    }
+    return operation + '(' + expr->to_string() + ')';
+}
 
+
+//-------------//
+//----OTHER----//
+//-------------//
+bool is_number(std::string source) {
+    if (source.length() == 0) return false;
+    int dot_count = 0;
+    bool im = (source.back() == 'i');
+    if (im) source.pop_back();
+    for (char c : source) {
+        if (!(('0' <= c && c <= '9') || c == '.' || c == ',')) return false;
+        if (c == '.' || c == ',') ++dot_count;
+    }
+    return dot_count <= 1;
+}
+template <typename L>
+L to_number(std::string source) {
+    bool im = (source.back() == 'i');
+    if (im) source.pop_back();
+    long double int_part = 0;
+    int i = 0;
+    for (; i < source.length() && source[i] != '.' && source[i] != ','; ++i) {
+        int_part *= 10;
+        int_part += (long double)(source[i] - '0');
+    }
+    long double frac_part = 0;
+    for (int j = source.length() - 1; j > i; --j) {
+        frac_part += (long double)(source[j] - '0');
+        frac_part /= 10;
+    }
+    long double res = int_part + frac_part;
+    if constexpr (std::is_same_v<T, std::complex<long double>>) {
+        if (im) return std::complex<long double>(0, res);
+    }
+    return L(res);
+}
+size_t find_close(std::string source) {
+    int cnt = 1;
+    for (size_t i = 0; i < source.length(); ++i) {
+        if (source[i] == '(') ++cnt;
+        if (source[i] == ')') --cnt;
+        if (cnt == 0) return i;
+    }
+    return std::string::npos;
+}
+size_t find_operator(std::string source) {
+    size_t f = 0, i = std::string::npos, j = std::string::npos, k = std::string::npos;
+    while (f < source.length()) {
+        if (source[f] == '+' || source[f] == '-') i = f;
+        if (source[f] == '*' || source[f] == '/') j = f;
+        if (source[f] == '^') k = f;
+        if (source[f] == '(') {
+            f += find_close(source.substr(f + 1)) + 1;
+            if (f == std::string::npos)
+                throw std::runtime_error("Expected a ')': " + source.substr(f));
+        }
+        ++f;
+    }
+    return (i == std::string::npos ? (j == std::string::npos ? k : j) : i);
+}
+
+namespace std {
+    std::string to_string(std::complex<long double> val) {
+        std::string real = std::to_string(val.real());
+        std::string imag = std::to_string(abs(val.imag()));
+        if (val.imag() == 0) {
+            if (real[0] == '-') return '(' + real + ')';
+            return real;
+        }
+        if (val.real() == 0) {
+            if (val.imag() < 0) return "(-" + (val.imag() == 1 ? "" : imag) + "i)";
+            return (val.imag() == 1 ? "" : imag) + 'i';
+        }
+        char op = (val.imag() < 0 ? '-' : '+');
+        return '(' + real + ' ' + op + ' ' + imag + "i)";
+    }
+}
+
+
+
+int main() {
+    std::string s = "sin(5 * x + 2) + ln(x ^ 2 + 1) + x ^ 3";
+    std::unique_ptr<Expression> k = Expression::create(s);
+    std::cout << s << "\n";
+    std::cout << k->to_string() << "\n";
+    k->specify('x', {2, -3});
+    std::cout << k->to_string() << "\n";
+    std::cout << "eval: " << std::setprecision(3) << k->evaluate() << "\n";
+}
