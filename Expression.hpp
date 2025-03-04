@@ -10,7 +10,8 @@
 const std::pair<char, std::string> UNARY_OPERATORS[4] = {{'s', "sin"}, {'c', "cos"}, {'l', "ln"}, {'e', "exp"}};
 
 //Хотел сделать с template, но по адекватному тогда нужно реализацию в hpp :((
-using T = std::complex<long double>;
+//using T = std::complex<long double>;
+using T = long double;
 
 class Expression {
 public:
@@ -21,6 +22,7 @@ public:
     static std::unique_ptr<Expression> create(std::string);
 
     virtual T evaluate(const std::map<char, T>& = {}) const = 0;
+    virtual std::unique_ptr<Expression> differentiate(char x) const = 0;
     virtual std::unique_ptr<Expression> specify(char, T) = 0;
     virtual std::string to_string() const = 0;
 };
@@ -32,6 +34,7 @@ public:
     std::unique_ptr<Expression> clone() const override;
 
     T evaluate(const std::map<char, T>& = {}) const override;
+    std::unique_ptr<Expression> differentiate(char x) const override;
     std::unique_ptr<Expression> specify(char, T) override;
     std::string to_string() const override;
 };
@@ -43,6 +46,7 @@ public:
     std::unique_ptr<Expression> clone() const override;
 
     T evaluate(const std::map<char, T>& = {}) const override;
+    std::unique_ptr<Expression> differentiate(char x) const override;
     std::unique_ptr<Expression> specify(char, T) override;
     std::string to_string() const override;
 };
@@ -57,6 +61,7 @@ public:
     std::unique_ptr<Expression> clone() const override;
 
     T evaluate(const std::map<char, T>& = {}) const override;
+    std::unique_ptr<Expression> differentiate(char x) const override;
     std::unique_ptr<Expression> specify(char, T) override;
     std::string to_string() const override;
 };
@@ -71,10 +76,10 @@ public:
     std::unique_ptr<Expression> clone() const override;
 
     T evaluate(const std::map<char, T>& = {}) const override;
+    std::unique_ptr<Expression> differentiate(char x) const override;
     std::unique_ptr<Expression> specify(char, T) override;
     std::string to_string() const override;
 };
-
 
 
 bool is_number(std::string);
@@ -82,6 +87,7 @@ template <typename L>
 L to_number(std::string);
 size_t find_close(std::string);
 size_t find_operator(std::string);
+std::string delete_zeros(std::string);
 
 // Я офигел от своей гениальности
 namespace std {
