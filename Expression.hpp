@@ -21,6 +21,7 @@ public:
     static std::unique_ptr<Expression> create(T);
     static std::unique_ptr<Expression> create(std::string);
 
+    virtual bool needs_diff(char) const = 0;
     virtual T evaluate(const std::map<char, T>& = {}) const = 0;
     virtual std::unique_ptr<Expression> differentiate(char x) const = 0;
     virtual std::unique_ptr<Expression> specify(char, T) = 0;
@@ -33,6 +34,7 @@ public:
     Constant(T);
     std::unique_ptr<Expression> clone() const override;
 
+    bool needs_diff(char) const override;
     T evaluate(const std::map<char, T>& = {}) const override;
     std::unique_ptr<Expression> differentiate(char x) const override;
     std::unique_ptr<Expression> specify(char, T) override;
@@ -45,6 +47,7 @@ public:
     Variable(char);
     std::unique_ptr<Expression> clone() const override;
 
+    bool needs_diff(char) const override;
     T evaluate(const std::map<char, T>& = {}) const override;
     std::unique_ptr<Expression> differentiate(char x) const override;
     std::unique_ptr<Expression> specify(char, T) override;
@@ -60,6 +63,7 @@ public:
     Binary& operator=(const Binary &);
     std::unique_ptr<Expression> clone() const override;
 
+    bool needs_diff(char) const override;
     T evaluate(const std::map<char, T>& = {}) const override;
     std::unique_ptr<Expression> differentiate(char x) const override;
     std::unique_ptr<Expression> specify(char, T) override;
@@ -75,12 +79,12 @@ public:
     Unary& operator=(const Unary &);
     std::unique_ptr<Expression> clone() const override;
 
+    bool needs_diff(char) const override;
     T evaluate(const std::map<char, T>& = {}) const override;
     std::unique_ptr<Expression> differentiate(char x) const override;
     std::unique_ptr<Expression> specify(char, T) override;
     std::string to_string() const override;
 };
-
 
 bool is_number(std::string);
 template <typename L>
@@ -89,7 +93,6 @@ size_t find_close(std::string);
 size_t find_operator(std::string);
 std::string delete_zeros(std::string);
 
-// Я офигел от своей гениальности
 namespace std {
     std::string to_string(std::complex<long double>);
 }

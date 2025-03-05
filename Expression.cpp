@@ -6,7 +6,6 @@
 std::unique_ptr<Expression> Expression::create(T val) {
     return std::make_unique<Constant>(val);
 }
-///*
 std::unique_ptr<Expression> Expression::create(std::string source) {
     while (source.length() > 0) {
         if (source[0] == ' ') {
@@ -64,7 +63,6 @@ std::unique_ptr<Expression> Expression::create(std::string source) {
     std::string r_source = source.substr(sep + 1);
     return std::make_unique<Binary>(source[sep], Expression::create(l_source), Expression::create(r_source));
 }
-//*/
 
 
 //--------------//
@@ -73,6 +71,9 @@ std::unique_ptr<Expression> Expression::create(std::string source) {
 Constant::Constant(T val) : value(val) {}
 std::unique_ptr<Expression> Constant::clone() const {
     return std::make_unique<Constant>(value);
+}
+bool Constant::needs_diff(char x) const {
+    return false;
 }
 T Constant::evaluate(const std::map<char, T> &x) const {
     return value;
@@ -94,6 +95,9 @@ std::string Constant::to_string() const {
 Variable::Variable(char x) : name(x) {}
 std::unique_ptr<Expression> Variable::clone() const {
     return std::make_unique<Variable>(name);
+}
+bool Variable::needs_diff(char x) const {
+    return x == name;
 }
 T Variable::evaluate(const std::map<char, T> &x) const {
     auto it = x.find(name);
@@ -133,6 +137,9 @@ Binary& Binary::operator=(const Binary &other) {
 std::unique_ptr<Expression> Binary::clone() const {
     return std::make_unique<Binary>(op, left->clone(), right->clone());
 }
+bool Binary::needs_diff(char x) const {
+    return left->needs_diff(x) || right->needs_diff(x);
+}
 T Binary::evaluate(const std::map<char, T> &x) const {
     T l = left->evaluate(x);
     T r = right->evaluate(x);
@@ -161,10 +168,11 @@ std::unique_ptr<Expression> Binary::differentiate(char x) const {
                     std::make_unique<Binary>('*', left->clone(), std::move(r))),
                 std::make_unique<Binary>('^', right->clone(), std::make_unique<Constant>(2)));
         case '^': return
-            std::make_unique<Unary>('e',
+            (std::make_unique<Unary>('e',
                 std::make_unique<Binary>('*',
                     right->clone(),
-                    std::make_unique<Unary>('l', left->clone())));
+                    std::make_unique<Unary>('l', left->clone())))
+            )->differentiate(x);
         default: throw std::runtime_error(std::string("Unknown operator: ") + op);
     }
 }
@@ -200,6 +208,9 @@ Unary& Unary::operator=(const Unary &other) {
 }
 std::unique_ptr<Expression> Unary::clone() const {
     return std::make_unique<Unary>(op, expr->clone());
+}
+bool Unary::needs_diff(char x) const {
+    return expr->needs_diff(x);
 }
 T Unary::evaluate(const std::map<char, T> &x) const {
     auto res = expr->evaluate(x);
@@ -339,7 +350,7 @@ namespace std {
 }
 
 
-
+/*
 int main() {
     std::string s = "ln(x^2)";
     std::cout << s << "\n";
@@ -347,3 +358,4 @@ int main() {
     std::cout << "expr: " << k->to_string() << "\n";
     std::cout << "diff: " << k->differentiate('x')->to_string() << "\n";
 }
+*/
