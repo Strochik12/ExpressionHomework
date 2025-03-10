@@ -72,7 +72,7 @@ Constant::Constant(T val) : value(val) {}
 std::unique_ptr<Expression> Constant::clone() const {
     return std::make_unique<Constant>(value);
 }
-bool Constant::needs_diff(char x) const {
+bool Constant::has_var(char x) const {
     return false;
 }
 T Constant::evaluate(const std::map<char, T> &x) const {
@@ -87,6 +87,9 @@ std::unique_ptr<Expression> Constant::specify(char x, T val) {
 std::string Constant::to_string() const {
     return delete_zeros(std::to_string(value));
 }
+std::pair<std::unique_ptr<Expression>, int> Constant::simplify() {
+    return {nullptr, -1};
+}
 
 
 //--------------//
@@ -96,8 +99,8 @@ Variable::Variable(char x) : name(x) {}
 std::unique_ptr<Expression> Variable::clone() const {
     return std::make_unique<Variable>(name);
 }
-bool Variable::needs_diff(char x) const {
-    return x == name;
+bool Variable::has_var(char x) const {
+    return x == name || x == ' ';
 }
 T Variable::evaluate(const std::map<char, T> &x) const {
     auto it = x.find(name);
@@ -113,6 +116,9 @@ std::unique_ptr<Expression> Variable::specify(char x, T val) {
 }
 std::string Variable::to_string() const {
     return {name};
+}
+std::pair<std::unique_ptr<Expression>, int> Variable::simplify() {
+    return {nullptr, 0};
 }
 
 
@@ -137,8 +143,8 @@ Binary& Binary::operator=(const Binary &other) {
 std::unique_ptr<Expression> Binary::clone() const {
     return std::make_unique<Binary>(op, left->clone(), right->clone());
 }
-bool Binary::needs_diff(char x) const {
-    return left->needs_diff(x) || right->needs_diff(x);
+bool Binary::has_var(char x) const {
+    return left->has_var(x) || right->has_var(x);
 }
 T Binary::evaluate(const std::map<char, T> &x) const {
     T l = left->evaluate(x);
@@ -186,8 +192,66 @@ std::unique_ptr<Expression> Binary::specify(char x, T val) {
     return nullptr;
 }
 std::string Binary::to_string() const {
-    if (op == '^') return left->to_string() + op + right->to_string();
-    return '(' + left->to_string() + ' ' + op + ' ' + right->to_string() + ')';
+    std::string l = left->to_string(), r = right->to_string();
+    if (op == '^') return l + op + r;
+    if (op == '+') {
+        if (l.size() > 1 && l[0] == '(' && l.back() == ')') {
+            l.pop_back();
+            l = l.substr(1);
+        }
+    }
+    if (op == '-' && l == "0") return "(-" + r + ")";
+    return '(' + l + ' ' + op + ' ' + r + ')';
+}
+std::pair<std::unique_ptr<Expression>, int> Binary::simplify() {
+    auto [new_left, left_type] = left->simplify();
+    auto [new_right, right_type] = right->simplify();
+    if (new_left)
+        left = std::move(new_left);
+    if (new_right)
+        right = std::move(new_right);
+    T left_val = (left_type == -1 ? left->evaluate() : -2);
+    T right_val = (right_type == -1 ? right->evaluate() : -2);
+
+    if (left_type == -1 && right_type == -1) // в выражении нет переменных, можно вычислить
+        return {std::make_unique<Constant>(evaluate()), -1};
+
+    switch (op) {
+        case '+':
+            if (left_val == 0)
+                return {std::move(right), right_type};
+            if (right_val == 0)
+                return {std::move(left), left_type};
+            break;
+        case '-':
+            if (left_val == 0)
+                return {nullptr, 1};
+            if (right_val == 0)
+                return {std::move(left), left_type};
+            break;
+        case '*':
+            if ((left_val == 0 || right_val == 0))
+                return {std::make_unique<Constant>(0), -1};
+            if (left_val == 1)
+                return {std::move(right), right_type};
+            if (right_val == 1)
+                return {std::move(left), left_type};
+            break;
+        case '/':
+            if (left_val == 0)
+                return {std::make_unique<Constant>(0), -1};
+            if (right_val == 1)
+                return {std::move(left), left_type};
+        case '^':
+            if (left_val == 0)
+                return {std::make_unique<Constant>(0), -1};
+            if (left_val == 1 || right_val == 0)
+                return {std::make_unique<Constant>(1), -1};
+            if (right_val == 1)
+                return {std::move(left), left_type};
+            break;
+    }
+    return {nullptr, 0};
 }
 
 
@@ -209,8 +273,8 @@ Unary& Unary::operator=(const Unary &other) {
 std::unique_ptr<Expression> Unary::clone() const {
     return std::make_unique<Unary>(op, expr->clone());
 }
-bool Unary::needs_diff(char x) const {
-    return expr->needs_diff(x);
+bool Unary::has_var(char x) const {
+    return expr->has_var(x);
 }
 T Unary::evaluate(const std::map<char, T> &x) const {
     auto res = expr->evaluate(x);
@@ -260,7 +324,20 @@ std::string Unary::to_string() const {
         case 'l': operation = "ln"; break;
         case 'e': operation = "exp"; break;
     }
-    return operation + '(' + expr->to_string() + ')';
+    std::string e = expr->to_string();
+    if (e.size() > 1 && e[0] == '(' && e.back() == ')') {
+        e.pop_back();
+        e = e.substr(1);
+    }
+    return operation + '(' + e + ')';
+}
+std::pair<std::unique_ptr<Expression>, int> Unary::simplify() {
+    auto [new_expr, type] = expr->simplify();
+    if (new_expr)
+        expr = std::move(new_expr);
+    if (type == -1)
+        return {std::make_unique<Constant>(evaluate()), -1};
+    return {nullptr, 1};
 }
 
 

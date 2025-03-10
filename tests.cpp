@@ -22,7 +22,9 @@ bool Test::test() const {
 }
 void Test::show() const {
     std::unique_ptr<Expression> e = Expression::create(expr);
+    e->simplify();
     std::unique_ptr<Expression> der = e->differentiate('x');
+    der->simplify();
     T result = (type == "eval" ? e->evaluate({{'x', x}}) : der->evaluate({{'x', x}}));
     std::cout << name << ": " << "\n";
     if (type == "eval") std::cout << "    source expression: " << expr << "    via x = " << x << "\n";
