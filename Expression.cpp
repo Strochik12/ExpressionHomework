@@ -72,9 +72,6 @@ Constant::Constant(T val) : value(val) {}
 std::unique_ptr<Expression> Constant::clone() const {
     return std::make_unique<Constant>(value);
 }
-bool Constant::has_var(char x) const {
-    return false;
-}
 T Constant::evaluate(const std::map<char, T> &x) const {
     return value;
 }
@@ -98,9 +95,6 @@ std::pair<std::unique_ptr<Expression>, int> Constant::simplify() {
 Variable::Variable(char x) : name(x) {}
 std::unique_ptr<Expression> Variable::clone() const {
     return std::make_unique<Variable>(name);
-}
-bool Variable::has_var(char x) const {
-    return x == name || x == ' ';
 }
 T Variable::evaluate(const std::map<char, T> &x) const {
     auto it = x.find(name);
@@ -142,9 +136,6 @@ Binary& Binary::operator=(const Binary &other) {
 }
 std::unique_ptr<Expression> Binary::clone() const {
     return std::make_unique<Binary>(op, left->clone(), right->clone());
-}
-bool Binary::has_var(char x) const {
-    return left->has_var(x) || right->has_var(x);
 }
 T Binary::evaluate(const std::map<char, T> &x) const {
     T l = left->evaluate(x);
@@ -272,9 +263,6 @@ Unary& Unary::operator=(const Unary &other) {
 }
 std::unique_ptr<Expression> Unary::clone() const {
     return std::make_unique<Unary>(op, expr->clone());
-}
-bool Unary::has_var(char x) const {
-    return expr->has_var(x);
 }
 T Unary::evaluate(const std::map<char, T> &x) const {
     auto res = expr->evaluate(x);

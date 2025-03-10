@@ -21,7 +21,6 @@ public:
     static std::unique_ptr<Expression> create(T);
     static std::unique_ptr<Expression> create(std::string);
 
-    virtual bool has_var(char = 0) const = 0;
     virtual T evaluate(const std::map<char, T>& = {}) const = 0;
     virtual std::unique_ptr<Expression> differentiate(char x) const = 0;
     virtual std::unique_ptr<Expression> specify(char, T) = 0;
@@ -37,7 +36,6 @@ public:
     Constant(T);
     std::unique_ptr<Expression> clone() const override;
 
-    bool has_var(char = ' ') const override;
     T evaluate(const std::map<char, T>& = {}) const override;
     std::unique_ptr<Expression> differentiate(char x) const override;
     std::unique_ptr<Expression> specify(char, T) override;
@@ -51,7 +49,6 @@ public:
     Variable(char);
     std::unique_ptr<Expression> clone() const override;
 
-    bool has_var(char = ' ') const override;
     T evaluate(const std::map<char, T>& = {}) const override;
     std::unique_ptr<Expression> differentiate(char x) const override;
     std::unique_ptr<Expression> specify(char, T) override;
@@ -68,7 +65,6 @@ public:
     Binary& operator=(const Binary &);
     std::unique_ptr<Expression> clone() const override;
 
-    bool has_var(char = ' ') const override;
     T evaluate(const std::map<char, T>& = {}) const override;
     std::unique_ptr<Expression> differentiate(char x) const override;
     std::unique_ptr<Expression> specify(char, T) override;
@@ -85,7 +81,6 @@ public:
     Unary& operator=(const Unary &);
     std::unique_ptr<Expression> clone() const override;
 
-    bool has_var(char = ' ') const override;
     T evaluate(const std::map<char, T>& = {}) const override;
     std::unique_ptr<Expression> differentiate(char x) const override;
     std::unique_ptr<Expression> specify(char, T) override;
