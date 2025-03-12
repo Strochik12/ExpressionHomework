@@ -233,6 +233,7 @@ std::pair<std::unique_ptr<Expression>, int> Binary::simplify() {
                 return {std::make_unique<Constant>(0), -1};
             if (right_val == 1)
                 return {std::move(left), left_type};
+            break;
         case '^':
             if (left_val == 0)
                 return {std::make_unique<Constant>(0), -1};
@@ -293,7 +294,7 @@ std::unique_ptr<Expression> Unary::differentiate(char x) const {
                 expr->clone());
         case 'e': return
             std::make_unique<Binary>('*',
-                std::make_unique<Unary>('e', expr->clone()),
+                clone(),
                 std::move(derivative));
         default: throw std::runtime_error(std::string("Unknown operator: ") + op);
     }

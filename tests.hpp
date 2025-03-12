@@ -21,4 +21,6 @@ std::vector<Test> tests = {
     {"TEST3", "sin(x * cos(x * 2))", 2, 0.61824308331, "diff"},
     {"TEST4", "exp(ln(x^2))", 1, 2, "diff"},
     {"TEST5", "sin(x) * exp(x)", 0.5, 2.2373281198, "diff"}
+    //{"TEST4", "x^y", 1, 2, "diff"},
+    //{"TEST5", "y^x", 0.5, 2.2373281198, "diff"}
 };
