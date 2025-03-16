@@ -9,8 +9,6 @@
 
 const std::pair<char, std::string> UNARY_OPERATORS[4] = {{'s', "sin"}, {'c', "cos"}, {'l', "ln"}, {'e', "exp"}};
 
-//Хотел сделать с template, но по адекватному тогда нужно реализацию в hpp :((
-//using T = std::complex<long double>;
 using T = long double;
 
 class Expression {
@@ -21,9 +19,9 @@ public:
     static std::unique_ptr<Expression> create(T);
     static std::unique_ptr<Expression> create(std::string);
 
-    virtual T evaluate(const std::map<char, T>& = {}) const = 0;
-    virtual std::unique_ptr<Expression> differentiate(char x) const = 0;
-    virtual std::unique_ptr<Expression> specify(char, T) = 0;
+    virtual T evaluate(const std::map<std::string, T>& = {}) const = 0;
+    virtual std::unique_ptr<Expression> differentiate(std::string x) const = 0;
+    virtual std::unique_ptr<Expression> specify(std::string, T) = 0;
     virtual std::string to_string() const = 0;
 
     // -1: нет переменных | 0: есть переменные | 1: (0 - epxr) (пока не сделал)
@@ -36,22 +34,22 @@ public:
     Constant(T);
     std::unique_ptr<Expression> clone() const override;
 
-    T evaluate(const std::map<char, T>& = {}) const override;
-    std::unique_ptr<Expression> differentiate(char x) const override;
-    std::unique_ptr<Expression> specify(char, T) override;
+    T evaluate(const std::map<std::string, T>& = {}) const override;
+    std::unique_ptr<Expression> differentiate(std::string x) const override;
+    std::unique_ptr<Expression> specify(std::string, T) override;
     std::string to_string() const override;
     std::pair<std::unique_ptr<Expression>, int> simplify() override;
 };
 
 class Variable : public Expression {
-    char name;
+    std::string name;
 public:
-    Variable(char);
+    Variable(std::string);
     std::unique_ptr<Expression> clone() const override;
 
-    T evaluate(const std::map<char, T>& = {}) const override;
-    std::unique_ptr<Expression> differentiate(char x) const override;
-    std::unique_ptr<Expression> specify(char, T) override;
+    T evaluate(const std::map<std::string, T>& = {}) const override;
+    std::unique_ptr<Expression> differentiate(std::string x) const override;
+    std::unique_ptr<Expression> specify(std::string, T) override;
     std::string to_string() const override;
     std::pair<std::unique_ptr<Expression>, int> simplify() override;
 };
@@ -65,9 +63,9 @@ public:
     Binary& operator=(const Binary &);
     std::unique_ptr<Expression> clone() const override;
 
-    T evaluate(const std::map<char, T>& = {}) const override;
-    std::unique_ptr<Expression> differentiate(char x) const override;
-    std::unique_ptr<Expression> specify(char, T) override;
+    T evaluate(const std::map<std::string, T>& = {}) const override;
+    std::unique_ptr<Expression> differentiate(std::string x) const override;
+    std::unique_ptr<Expression> specify(std::string, T) override;
     std::string to_string() const override;
     std::pair<std::unique_ptr<Expression>, int> simplify() override;
 };
@@ -81,14 +79,15 @@ public:
     Unary& operator=(const Unary &);
     std::unique_ptr<Expression> clone() const override;
 
-    T evaluate(const std::map<char, T>& = {}) const override;
-    std::unique_ptr<Expression> differentiate(char x) const override;
-    std::unique_ptr<Expression> specify(char, T) override;
+    T evaluate(const std::map<std::string, T>& = {}) const override;
+    std::unique_ptr<Expression> differentiate(std::string x) const override;
+    std::unique_ptr<Expression> specify(std::string, T) override;
     std::string to_string() const override;
     std::pair<std::unique_ptr<Expression>, int> simplify() override;
 };
 
 bool is_number(std::string);
+bool is_name(std::string);
 template <typename L>
 L to_number(std::string);
 size_t find_close(std::string);

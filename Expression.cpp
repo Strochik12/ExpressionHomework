@@ -29,14 +29,11 @@ std::unique_ptr<Expression> Expression::create(std::string source) {
         return std::make_unique<Constant>(to_number<T>(source));
 
     //---VARIABLE--//
-    if (source.length() == 1) {
-        char c = source[0];
+    if (is_name(source)) {
         if constexpr (std::is_same_v<T, std::complex<long double>>) {
-            if (c == 'i') return std::make_unique<Constant>(std::complex<long double>(0, 1));
+            if (source[0] == 'i') return std::make_unique<Constant>(std::complex<long double>(0, 1));
         }
-        if (('a' <= c && c <= 'z') || ('A' <= c && c <= 'Z'))
-            return std::make_unique<Variable>(c);
-        throw std::runtime_error(std::string("Invalid character for expression: ") + c);
+        return std::make_unique<Variable>(source);
     }
 
     //----UNARY----//
@@ -72,13 +69,13 @@ Constant::Constant(T val) : value(val) {}
 std::unique_ptr<Expression> Constant::clone() const {
     return std::make_unique<Constant>(value);
 }
-T Constant::evaluate(const std::map<char, T> &x) const {
+T Constant::evaluate(const std::map<std::string, T> &x) const {
     return value;
 }
-std::unique_ptr<Expression> Constant::differentiate(char x) const {
+std::unique_ptr<Expression> Constant::differentiate(std::string x) const {
     return std::make_unique<Constant>(0);
 }
-std::unique_ptr<Expression> Constant::specify(char x, T val) {
+std::unique_ptr<Expression> Constant::specify(std::string x, T val) {
     return nullptr;
 }
 std::string Constant::to_string() const {
@@ -92,18 +89,18 @@ std::pair<std::unique_ptr<Expression>, int> Constant::simplify() {
 //--------------//
 //---VARIABLE---//
 //--------------//
-Variable::Variable(char x) : name(x) {}
+Variable::Variable(std::string x) : name(x) {}
 std::unique_ptr<Expression> Variable::clone() const {
     return std::make_unique<Variable>(name);
 }
-T Variable::evaluate(const std::map<char, T> &x) const {
+T Variable::evaluate(const std::map<std::string, T> &x) const {
     auto it = x.find(name);
     return (it != x.end()) ? it->second : T{};
 }
-std::unique_ptr<Expression> Variable::differentiate(char x) const {
+std::unique_ptr<Expression> Variable::differentiate(std::string x) const {
     return std::make_unique<Constant>(x == name ? 1 : 0);
 }
-std::unique_ptr<Expression> Variable::specify(char x, T val) {
+std::unique_ptr<Expression> Variable::specify(std::string x, T val) {
     if (x == name)
         return std::make_unique<Constant>(val);
     return nullptr;
@@ -137,7 +134,7 @@ Binary& Binary::operator=(const Binary &other) {
 std::unique_ptr<Expression> Binary::clone() const {
     return std::make_unique<Binary>(op, left->clone(), right->clone());
 }
-T Binary::evaluate(const std::map<char, T> &x) const {
+T Binary::evaluate(const std::map<std::string, T> &x) const {
     T l = left->evaluate(x);
     T r = right->evaluate(x);
     switch (op) {
@@ -149,7 +146,7 @@ T Binary::evaluate(const std::map<char, T> &x) const {
         default: throw std::runtime_error(std::string("Unknown operator: ") + op);
     }
 }
-std::unique_ptr<Expression> Binary::differentiate(char x) const {
+std::unique_ptr<Expression> Binary::differentiate(std::string x) const {
     std::unique_ptr<Expression> l = left->differentiate(x);
     std::unique_ptr<Expression> r = right->differentiate(x);
     switch (op) {
@@ -173,7 +170,7 @@ std::unique_ptr<Expression> Binary::differentiate(char x) const {
         default: throw std::runtime_error(std::string("Unknown operator: ") + op);
     }
 }
-std::unique_ptr<Expression> Binary::specify(char x, T val) {
+std::unique_ptr<Expression> Binary::specify(std::string x, T val) {
     std::unique_ptr<Expression> new_left = left->specify(x, val);
     std::unique_ptr<Expression> new_right = right->specify(x, val);
     if (new_left)
@@ -265,7 +262,7 @@ Unary& Unary::operator=(const Unary &other) {
 std::unique_ptr<Expression> Unary::clone() const {
     return std::make_unique<Unary>(op, expr->clone());
 }
-T Unary::evaluate(const std::map<char, T> &x) const {
+T Unary::evaluate(const std::map<std::string, T> &x) const {
     auto res = expr->evaluate(x);
     switch (op) {
         case 's': return sin(res);
@@ -275,7 +272,7 @@ T Unary::evaluate(const std::map<char, T> &x) const {
         default: throw std::runtime_error(std::string("Unknown operator: ") + op);
     }
 }
-std::unique_ptr<Expression> Unary::differentiate(char x) const {
+std::unique_ptr<Expression> Unary::differentiate(std::string x) const {
     std::unique_ptr<Expression> derivative = expr->differentiate(x);
     switch (op) {
         case 's': return
@@ -299,7 +296,7 @@ std::unique_ptr<Expression> Unary::differentiate(char x) const {
         default: throw std::runtime_error(std::string("Unknown operator: ") + op);
     }
 }
-std::unique_ptr<Expression> Unary::specify(char x, T val) {
+std::unique_ptr<Expression> Unary::specify(std::string x, T val) {
     std::unique_ptr<Expression> new_expr = expr->specify(x, val);
     if (new_expr)
         expr = std::move(new_expr);
@@ -343,6 +340,17 @@ bool is_number(std::string source) {
         if (c == '.' || c == ',') ++dot_count;
     }
     return dot_count <= 1;
+}
+bool is_name(std::string source) {
+    if (!source.empty() && ('0' <= source[0] && source[0] <= '9'))
+        return false;
+    if (source == "sin" || source == "cos" || source == "ln" || source == "exp")
+        return false;
+    for (char c : source) {
+        if (!(('A' <= c && c <= 'Z') || ('a' <= c && c <= 'z') || ('0' <= c && c <= '9') || c == '_'))
+            return false;
+    }
+    return true;
 }
 template <typename L>
 L to_number(std::string source) {

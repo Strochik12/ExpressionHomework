@@ -11,8 +11,8 @@ Test::Test(std::string name, std::string expr_, T x_, T res_, std::string type_)
 
 bool Test::test() const {
     T result = 0;
-    if (type == "eval") result = Expression::create(expr)->evaluate({{'x', x}});
-    else result = Expression::create(expr)->differentiate('x')->evaluate({{'x', x}});
+    if (type == "eval") result = Expression::create(expr)->evaluate({{"x", x}});
+    else result = Expression::create(expr)->differentiate("x")->evaluate({{"x", x}});
     if (equal(result, res)) {
         std::cout << "OK\n";
         return true;
@@ -23,9 +23,9 @@ bool Test::test() const {
 void Test::show() const {
     std::unique_ptr<Expression> e = Expression::create(expr);
     e->simplify();
-    std::unique_ptr<Expression> der = e->differentiate('x');
+    std::unique_ptr<Expression> der = e->differentiate("x");
     der->simplify();
-    T result = (type == "eval" ? e->evaluate({{'x', x}}) : der->evaluate({{'x', x}}));
+    T result = (type == "eval" ? e->evaluate({{"x", x}}) : der->evaluate({{"x", x}}));
     std::cout << name << ": " << "\n";
     if (type == "eval") std::cout << "    source expression: " << expr << "    via x = " << x << "\n";
     else                std::cout << "    source expression: (" << expr << ")'    via x = " << x << "\n";
