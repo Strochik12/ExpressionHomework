@@ -3,20 +3,22 @@ CXX = g++
 CXXFLAGS = -Wall -Wextra -std=c++20 -w -O2
 
 SRCTESTS = tests.cpp Expression.cpp
+SRC = main.cpp Expression.cpp
 
-# Список объектных файлов
 OBJTESTS = $(SRCTESTS:.cpp=.o) 
+OBJ = $(SRC:.cpp=.o)
 
-# Имя итогового исполняемого файла
 TARGETTESTS = tests.exe
+TARGET = differentiator
 
-all: $(TARGETTESTS)
 
-# Правило для сборки исполняемого файла
+
+$(TARGET): $(OBJ)
+	$(CXX) $(CXXFLAGS) -o $@ $^
+
 $(TARGETTESTS): $(OBJTESTS)
-	$(CXX) $^ -o $@
+	$(CXX) $(CXXFLAGS) -o $@ $^
 
-# Правило для компиляции .cpp в .o
 %.o: %.cpp
 	$(CXX) $(CXXFLAGS) -c $< -o $@
 
@@ -26,4 +28,4 @@ test: $(TARGETTESTS)
 
 # Команда для удаления скомпилированных файлов
 clean:
-	rm -f *.o $(TARGETTESTS)
+	rm -f *.o $(TARGET) $(TARGETTESTS) $(OBJS) $(OBJTESTS)
