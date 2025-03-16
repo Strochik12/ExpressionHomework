@@ -89,7 +89,28 @@ public:
 bool is_number(std::string);
 bool is_name(std::string);
 template <typename L>
-L to_number(std::string);
+L to_number(std::string source) {
+    bool im = (source.back() == 'i');
+    if (im) source.pop_back();
+    long double int_part = 0;
+    int i = 0;
+    for (; i < source.length() && source[i] != '.' && source[i] != ','; ++i) {
+        int_part *= 10;
+        int_part += (long double)(source[i] - '0');
+    }
+    long double frac_part = 0;
+    for (int j = source.length() - 1; j > i; --j) {
+        frac_part += (long double)(source[j] - '0');
+        frac_part /= 10;
+    }
+    long double res = int_part + frac_part;
+    if constexpr (std::is_same_v<T, std::complex<long double>>) {
+        if (im) return std::complex<long double>(0, res);
+    }
+    return L(res);
+}
+
+void simplify(std::unique_ptr<Expression> &);
 size_t find_close(std::string);
 size_t find_operator(std::string);
 std::string delete_zeros(std::string);

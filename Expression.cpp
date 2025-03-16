@@ -183,7 +183,7 @@ std::string Binary::to_string() const {
     std::string l = left->to_string(), r = right->to_string();
     if (op == '^') return l + op + r;
     if (op == '+') {
-        if (l.size() > 1 && l[0] == '(' && l.back() == ')') {
+        if (l.size() > 1 && l[0] == '(' && find_close(l.substr(1)) == l.length() - 2) {
             l.pop_back();
             l = l.substr(1);
         }
@@ -194,10 +194,11 @@ std::string Binary::to_string() const {
 std::pair<std::unique_ptr<Expression>, int> Binary::simplify() {
     auto [new_left, left_type] = left->simplify();
     auto [new_right, right_type] = right->simplify();
-    if (new_left)
+    if (new_left != nullptr)
         left = std::move(new_left);
-    if (new_right)
+    if (new_right != nullptr)
         right = std::move(new_right);
+
     T left_val = (left_type == -1 ? left->evaluate() : -2);
     T right_val = (right_type == -1 ? right->evaluate() : -2);
 
@@ -330,6 +331,11 @@ std::pair<std::unique_ptr<Expression>, int> Unary::simplify() {
 //-------------//
 //----OTHER----//
 //-------------//
+void simplify(std::unique_ptr<Expression> &expr) {
+    auto [new_expr, type] = expr->simplify();
+    if (new_expr)
+        expr = std::move(new_expr);
+}
 bool is_number(std::string source) {
     if (source.length() == 0) return false;
     int dot_count = 0;
@@ -351,27 +357,6 @@ bool is_name(std::string source) {
             return false;
     }
     return true;
-}
-template <typename L>
-L to_number(std::string source) {
-    bool im = (source.back() == 'i');
-    if (im) source.pop_back();
-    long double int_part = 0;
-    int i = 0;
-    for (; i < source.length() && source[i] != '.' && source[i] != ','; ++i) {
-        int_part *= 10;
-        int_part += (long double)(source[i] - '0');
-    }
-    long double frac_part = 0;
-    for (int j = source.length() - 1; j > i; --j) {
-        frac_part += (long double)(source[j] - '0');
-        frac_part /= 10;
-    }
-    long double res = int_part + frac_part;
-    if constexpr (std::is_same_v<T, std::complex<long double>>) {
-        if (im) return std::complex<long double>(0, res);
-    }
-    return L(res);
 }
 size_t find_close(std::string source) {
     int cnt = 1;
@@ -422,14 +407,3 @@ namespace std {
         return '(' + real + ' ' + op + ' ' + (val.imag() == 1 ? "" : imag) + "i)";
     }
 }
-
-
-/*
-int main() {
-    std::string s = "ln(x^2)";
-    std::cout << s << "\n";
-    std::unique_ptr<Expression> k = Expression::create(s);
-    std::cout << "expr: " << k->to_string() << "\n";
-    std::cout << "diff: " << k->differentiate('x')->to_string() << "\n";
-}
-*/
